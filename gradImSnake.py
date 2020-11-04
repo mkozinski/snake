@@ -2,7 +2,7 @@ import numpy as np
 from functools import reduce
 import torch as th
 
-from snake import snake
+from snake import Snake
 
 # Gaussian gradient for snakes
 
@@ -61,7 +61,7 @@ def cmptGradIm(img,fltr):
 
 def cmptExtGrad(snakepos,eGradIm):
     # returns the values of eGradIm at positions snakepos
-    # snakepos  is a k X d matrix, where snakepos[i,j,:] represents a d-dimensional position of the j-th node of the i-th snake
+    # snakepos  is a k X d matrix, where snakepos[j,:] represents a d-dimensional position of the j-th node of the snake
     # eGradIm   is a tensor containing the energy gradient image, either of size
     #           3 X d X h X w, for 3D, or of size
     #           2     X h X w, for 2D snakes
@@ -85,7 +85,7 @@ def cmptExtGrad(snakepos,eGradIm):
         
     return egrad.reshape_as(snakepos)
 
-class GradimSnake(Snake):
+class GradImSnake(Snake):
     # a snake with external energy gradients sampled from a "gradient image"
     
     def __init__(self,graph,crop,stepsz,alpha,beta,ndims,gimg):
@@ -93,16 +93,16 @@ class GradimSnake(Snake):
         # a tensor of size ndim X h X w for 2D snake, or ndim X d X h X w, for 3D
         # gimg[i,h,w] contains the gradient of the external energy
         # with respect to the i-th coordinate of a control point located at (h,w)
-        super(GradimSnake,self).__init__(graph,crop,stepsz,alpha,beta,ndims)
+        super(GradImSnake,self).__init__(graph,crop,stepsz,alpha,beta,ndims)
         self.gimg=gimg
     
     def cuda(self):
-        super(GradimSnake,self).cuda()
+        super(GradImSnake,self).cuda()
         self.gimg=self.gimg.cuda()
         
     def step(self):
         # external gradient for each control point is extracted from gimg
-        return super(GradimSnake,self).step(cmptExtGrad(self.s,self.gimg))
+        return super(GradImSnake,self).step(cmptExtGrad(self.s,self.gimg))
     
     def optim(self,niter):
         # update the snake niter times
