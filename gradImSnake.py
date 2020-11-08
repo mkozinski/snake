@@ -123,7 +123,8 @@ class GradImSnake(Snake):
     
     def cuda(self):
         super(GradImSnake,self).cuda()
-        self.gimg=self.gimg.cuda()
+        if self.gimg is not None:
+            self.gimg=self.gimg.cuda()
         
     def step(self):
         # external gradient for each control point is extracted from gimg
