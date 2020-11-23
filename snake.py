@@ -1,73 +1,9 @@
 import numpy as np
 from functools import reduce
 import torch as th
-
-def nodeInside(pos,crop):
-    # pos i an np-array containing the dimensions of a single point in k dimensions
-    # crop is a tuple of slice objects, defining a crop of k-dimensional space
-    # the function returns True if pos lies inside crop, using pytorch index arithmetics
-    # (i.e., location 29.5 is outside of array of size 30, but location 0 is inside)
-    
-    assert len(pos)==len(crop)
-    for p,l in zip(pos,crop):
-        if p<l.start or p>l.stop-1:
-            return False
-    return True
-    
-def cropGraph(G,crop):
-    # G is a nx.Graph, whose nodes have attributes called "pos";
-    # each of these attributes is an np.array
-    # and determines a position of the node
-    # (the coordinates go in the standard order: 0th, 1st, 2nd, etc)
-    # G.nodes[n]["pos"]==np.array([1,2,3]) means node n is at position 1,2,3
-    #
-    # crop is a tuple of slice objects
-    #
-    # this function returns another graph H,
-    # which contains the nodes of G that lie inside the crop,
-    # and, for each edge of G that crosses crop boundary,
-    # a node lying on the crop boundary,
-    # and connected to the end of the edge that is inside the crop;
-    # these "boundary nodes" have an attribute called "fixedDim",
-    # set to the index of the dimension perpendicular to the crop boundary that they traverse
-    H=G.copy()
-    nodes2delete=[]
-    boundaryNodes=[]
-    maxind=0
-    for n in H.nodes:
-        maxind=max(maxind,n)
-        p=H.nodes[n]["pos"]
-        if not nodeInside(p,crop):
-            nodes2delete.append(n)
-        else:
-            # for each edge that goes outside of the crop, establish a new node
-            # at the point where the edge crosses the crop boundary
-            for m in H[n]:
-                q=H.nodes[m]["pos"]
-                if not nodeInside(q,crop):
-                    # find the position at which the edge cuts the crop boundary
-                    a=1.0
-                    dim=0
-                    for pp,qq,l,ind in zip(p,q,crop,range(len(crop))):
-                        b=2.0
-                        if qq<l.start:
-                            b=(l.start-pp)/(qq-pp)
-                        elif qq>l.stop-1:
-                            b=(l.stop-1 -pp)/(qq-pp)
-                        if b<a:
-                            a=b
-                            dim=ind
-                    inters=a*q+(1-a)*p
-                    boundaryNodes.append((inters,n,dim)) 
-    H.remove_nodes_from(nodes2delete)
-    
-    newnode=maxind
-    for position,ind,dim in boundaryNodes:
-        newnode=newnode+1
-        H.add_node(newnode,pos=position,fixedDim=dim)
-        H.add_edge(newnode,ind)
-        
-    return H
+from renderLineGraph import renderGraph
+from renderDistanceMap import renderDistBig
+from cropGraph import nodeInside, cropGraph
 
 def getA(G,alpha,beta,dims):
     # G is an nx.graph
@@ -230,10 +166,25 @@ class Snake():
         # returns a graph reflecting the current position of snake nodes
         # note, that the graph only contains the nodes that lie within the crop area
         # (see the init method)
+        s=self.s.cpu().detach().numpy()
         g=self.h.copy()
         for n in g.nodes:
-            g.nodes[n]["pos"]=self.s[self.n2i[n],:].cpu().numpy()
+            g.nodes[n]["pos"]=s[self.n2i[n],:]
         
         return g
     
+    def renderSnakeWithLines(self,lbl):
+        g=self.getGraph()
+        return renderGraph(lbl,g)
+
+    def renderDistanceMap(self,size,cropsz,dmax,maxedgelen):
+        # size is the size of the distance bolume, an interable of ints
+        # cropsz defines the size of the crop to use when rendering the map
+        # (smaller crop - less memory needed)
+        # it is an interable  of ints 
+        # dmax is the value used to cap the distance map as D[i]=min(dist[i],dmax)
+        # maxedgelen is the maximum edge length in the graph
+        return renderDistBig(self.getGraph(),self.getPos(),self.n2i,size,
+                             cropsz,dmax,maxedgelen)
+
 

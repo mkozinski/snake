@@ -69,46 +69,24 @@ def cmptExtGrad(snakepos,eGradIm):
     # containing the values of eGradIm at coordinates specified by snakepos
     
     # scale snake coordinates to match the hilarious requirements of grid_sample
+    # we use the obsolote convention, where align_corners=True
     scale=th.tensor(eGradIm.shape[1:]).reshape((1,-1)).type_as(snakepos)-1.0
     sp=2*snakepos/scale-1.0
     
     if eGradIm.shape[0]==3:
         # invert the coordinate order to match other hilarious specs of grid_sample
         spi=th.einsum('km,md->kd',[sp,th.tensor([[0,0,1],[0,1,0],[1,0,0]]).type_as(sp).to(sp.device)])
-        egrad=th.nn.functional.grid_sample(eGradIm[None],spi[None,None,None])
+        egrad=th.nn.functional.grid_sample(eGradIm[None],spi[None,None,None],
+                                           align_corners=True)
         egrad=egrad.permute(0,2,3,4,1)
     if eGradIm.shape[0]==2:
         # invert the coordinate order to match other hilarious specs of grid_sample
         spi=th.einsum('kl,ld->kd',[sp,th.tensor([[0,1],[1,0]]).type_as(sp).to(sp.device)])
-        egrad=th.nn.functional.grid_sample(eGradIm[None],spi[None,None])
+        egrad=th.nn.functional.grid_sample(eGradIm[None],spi[None,None],
+                                           align_corners=True)
         egrad=egrad.permute(0,2,3,1)
         
     return egrad.reshape_as(snakepos)
-
-def drawLine(lbl,begPoint,endPoint):
-    # endPoint and begPoint should be np.arrays
-    # lbl is an np.array to which the line is rendered
-    d=endPoint-begPoint
-    mi=np.argmax(np.fabs(d))
-    if d[mi]==0: # beginning and end points the same
-        lbl[tuple(begPoint.astype(np.int))]=1
-    else:
-        coef=d/d[mi] # a vector that points from the current to the next pixel
-        sz=np.array(lbl.shape) # an array holding a shape not an array of shape
-        numsteps=int(abs(d[mi]))+1
-        step=int(d[mi]/abs(d[mi])) # +-1
-        for t in range(0,numsteps):
-            pos=begPoint+coef*t*step
-            if np.all(pos<sz) and np.all(pos>=0):
-                lbl[tuple(np.round(pos).astype(np.int))]=1
-            else:
-                print("warning: reqested point",pos,"but the volume size is",sz)
-    return lbl
-
-def renderGraph(t,g,offset=0):
-    for e in g.edges:
-        drawLine(t,g.nodes[e[0]]["pos"]+offset,g.nodes[e[1]]["pos"]+offset)
-    return t
 
 class GradImSnake(Snake):
     # a snake with external energy gradients sampled from a "gradient image"
@@ -135,8 +113,4 @@ class GradImSnake(Snake):
         for i in range(niter):
             self.step()
         return self.s
-
-    def renderSnake(self,lbl):
-        g=self.getGraph()
-        return renderGraph(lbl,g)
 

@@ -35,7 +35,7 @@ class test_cropGraph(unittest.TestCase):
         
         h=snake.cropGraph(g,[slice(0,5),slice(0,4.5),slice(0,6)])
         self.assertTrue(len(h.nodes)==3)
-        self.assertTrue((h.nodes[4]["pos"]==np.array([1.5,3.5,1])).all())
+        self.assertTrue((h.nodes[1]["pos"]==np.array([1,4,1])).all())
         self.assertTrue((h.nodes[2]["pos"]==g.nodes[2]["pos"]).all())
         self.assertTrue((h.nodes[3]["pos"]==g.nodes[3]["pos"]).all())
             
